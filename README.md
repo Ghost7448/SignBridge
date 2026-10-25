@@ -1,104 +1,101 @@
-# SignBridge — نظام تجريبي للتعرّف على أوضاع اليد
+# SignBridge
 
-SignBridge مشروع رؤية حاسوبية يستخدم كاميرا الويب وMediaPipe لاستخراج 21 نقطة من اليد، ثم يصنّفها باستخدام نموذج تعلم آلي. يتضمن تجربة بحثية لمقارنة الإحداثيات الخام بالإحداثيات النسبية المرتبطة بالرسغ.
+مشروع تعليمي للرؤية الحاسوبية يجرّب التعرّف على أوضاع اليد، ويضم وضعًا منفصلًا لتجربة نموذج بحثي للتعرّف على بعض كلمات لغة الإشارة المصرية (ESL).
 
-> **تنبيه مهم:** SIGN_1 وSIGN_2 وSIGN_3 أسماء لأوضاع يد تجريبية وليست كلمات موثقة من لغة الإشارة المصرية. لا يُعد هذا الإصدار مترجمًا كاملًا للغة الإشارة.
+> **حدود مهمة:** هذا المشروع ليس مترجمًا كاملًا للغة الإشارة المصرية. فئات `SIGN_1` و`SIGN_2` و`SIGN_3` هي تسميات تجريبية، والنموذج البحثي الخارجي قد يخطئ. درجة الثقة التي يعرضها النموذج ليست نسبة دقة مضمونة. لا تستخدم النتائج كوسيلة تواصل موثوقة أو كبديل لمترجم مختص.
 
-## المميزات
-- واجهة سطح مكتب باللغة العربية.
-- تتبّع اليد في الوقت الحقيقي عبر كاميرا الويب.
-- عرض الفئة المتوقعة ودرجة ثقة المصنف عند توفرها.
-- نطق وصف تجريبي للنتيجة إذا كانت ميزة الصوت متاحة.
-- جمع بيانات مع تسجيل فئة الإشارة وموضع اليد.
-- تدريب نموذج الإحداثيات النسبية.
-- تقييم RAW مقابل RELATIVE مع حجب موضع كاميرا كامل في كل مرة.
+## التشغيل السريع — وضع SignBridge الأساسي
 
-## متطلبات التشغيل
-- Windows 10 أو Windows 11.
-- Python 3.11 (موصى به).
-- كاميرا ويب.
-- اتصال إنترنت لتثبيت المكتبات أول مرة.
+**المتطلبات:** Windows 10/11، Python 3.11، كاميرا ويب.
 
-## تثبيت سريع
-1. اضغط Code ثم Download ZIP في GitHub، وبعدها فك الضغط.
-2. افتح المجلد بعد فك الضغط.
-3. شغّل setup.bat وانتظر تثبيت المكتبات.
-4. شغّل run_app.bat لفتح الواجهة.
+1. نزّل المستودع من **Code → Download ZIP** ثم فك الضغط.
+2. افتح مجلد المشروع.
+3. شغّل `setup.bat` وانتظر تثبيت المتطلبات.
+4. شغّل `run_app.bat`.
 
-يمكن أيضًا تشغيل الأوامر يدويًا من موجه الأوامر داخل المجلد:
+للتشغيل اليدوي من موجه الأوامر داخل مجلد المشروع:
 
-    py -3.11 -m venv .venv
-    .venv\\Scripts\\python.exe -m pip install --upgrade pip
-    .venv\\Scripts\\python.exe -m pip install -r requirements.txt
-    .venv\\Scripts\\python.exe app.py
+```bat
+py -3.11 -m venv .venv
+.venv\\Scripts\\python.exe -m pip install --upgrade pip
+.venv\\Scripts\\python.exe -m pip install -r requirements.txt
+.venv\\Scripts\\python.exe app.py
+```
 
-## الملفات الرئيسية
-- app.py: الواجهة والتعرّف المباشر بالكاميرا.
-- collect_research_data.py: جمع بيانات البحث للفئة والموضع المختارين.
-- compare_models.py: مقارنة الإحداثيات الخام والنسبية.
-- train_research_model.py: تدريب النموذج النسبي من research_data.csv.
-- check_research_data.py: فحص سلامة البيانات.
-- test_live_model.py: اختبار مباشر بالكاميرا من نافذة OpenCV.
-- evaluate_external.py: تقييم النماذج على بيانات جديدة (شخص/إضاءة مختلفة).
-- preflight.py / preflight.bat: فحص جاهزية اللابتوب قبل العرض.
-- model_relative.pkl: النموذج النسبي المستخدم في التطبيق.
-- model_raw.pkl: نموذج الإحداثيات الخام للمقارنة.
-- research_data.csv: بيانات التجربة الحالية.
+## تشغيل وضع ESL البحثي
 
-## تشغيل التطبيق
-شغّل run_app.bat. لو لم يفتح النموذج، تأكد أن model_relative.pkl موجود بجوار app.py. عند ظهور خطأ كاميرا، أغلق أي برنامج آخر يستخدم الكاميرا وتأكد من صلاحيات الكاميرا في Windows.
+الوضع منفصل عن التطبيق الأساسي ولا يستبدل نموذج `SIGN_1/2/3`.
 
-## جمع بيانات جديدة
-1. شغّل collect_research_data.bat أو الأمر: python collect_research_data.py.
-2. اكتب اسم الفئة، مثل SIGN_1.
-3. اختر موضع اليد من الخيارات الظاهرة.
-4. حافظ على وضع اليد نفسه واضغط S لبدء الجمع. اضغط Q للخروج.
-5. كرر الجمع لكل فئة في كل موضع. من الأفضل التسجيل في جلسات وأيام مختلفة.
+1. تأكد من تثبيت Python 3.11.
+2. شغّل `run_esl_app.bat`.
+3. في أول تشغيل، يحتاج تثبيت المتطلبات وتنزيل الملفات الناقصة إلى اتصال بالإنترنت.
+4. راجع `THIRD_PARTY_NOTICES.md` قبل إعادة توزيع المشروع.
 
-الجامع يضيف العينات إلى research_data.csv في مجلد المشروع. احتفظ بنسخة احتياطية من بياناتك قبل جمع بيانات جديدة.
+هذا الوضع يستخدم نموذجًا بحثيًا من مشروع [ESL-software-ml](https://github.com/abdullahsherdy/ESL-software-ml)، وليس نموذجًا دُرّب خصيصًا على الفيديوهات التي نزّلتها للتو. لا يفترض أن تنزيل مجموعة البيانات أو فهرستها يدرّب النموذج تلقائيًا.
 
-## إعادة تدريب النموذج
-بعد التأكد من أن البيانات تحتوي فئتين على الأقل، شغّل:
+## هيكل الملفات
 
-    .venv\\Scripts\\python.exe train_research_model.py
+```text
+SignBridge/
+├── app.py                      # واجهة التطبيق الأساسي
+├── main.py                     # تجربة تتبّع اليد
+├── predict.py                  # تجربة تنبؤ النموذج الأساسي
+├── train_model.py              # تدريب النموذج الأساسي من signbridge_data.csv
+├── collect_data.py             # جمع بيانات النموذج الأساسي
+├── model_raw.pkl               # نموذج الإحداثيات الخام للتجارب
+├── model_relative.pkl          # نموذج الإحداثيات النسبية للتجارب
+├── signbridge_model.pkl        # نموذج وضع التنبؤ الأساسي
+├── esl_app.py                  # واجهة نموذج ESL البحثي
+├── src/                        # أدوات الاستدلال ومسارات ملفات النموذج الخارجي
+├── artifacts/                  # ملفات نموذج ESL المستخدم عند التشغيل
+├── datasets/
+│   ├── README.md               # مصدر مجموعة ESL وترخيصها وخطوات تجهيزها
+│   └── raw/                    # ضع الفيديوهات هنا محليًا؛ لا تُرفع إلى GitHub
+├── inspect_esl_dataset.py      # جرد الفيديوهات وعدّها حسب مجلد الإشارة
+├── collect_research_data.py    # جمع بيانات التجربة البحثية
+├── train_research_model.py     # تدريب النموذج البحثي المحلي
+├── compare_models.py           # مقارنة RAW وRELATIVE
+├── check_research_data.py      # فحص بيانات التجربة
+├── evaluate_external.py        # تقييم على بيانات منفصلة
+├── preflight.bat / preflight.py # فحص جاهزية العرض
+├── requirements.txt            # متطلبات التطبيق الأساسي
+├── requirements-esl.txt        # متطلبات وضع ESL
+├── setup.bat / run_app.bat     # تثبيت وتشغيل التطبيق الأساسي
+├── run_esl_app.bat             # تشغيل وضع ESL
+├── DEMO_GUIDE_AR.md            # دليل العرض بالعربية
+└── THIRD_PARTY_NOTICES.md      # الإسناد وملاحظات تراخيص الأطراف الثالثة
+```
 
-سيُحفظ النموذج الناتج في model_relative.pkl، وهذا يستبدل النموذج النسبي الحالي؛ احتفظ بنسخة إذا أردت الرجوع إلى النموذج السابق.
+## مجموعة فيديوهات لغة الإشارة المصرية
 
-## إعادة التجربة البحثية
-شغّل check_research_data.py ثم compare_models.py. يقوم سكربت المقارنة بتدريب نموذج جديد مع حجب موضع كامل من التدريب واختباره على هذا الموضع. هذا يدرس حساسية النموذج لمكان اليد، لكنه لا يثبت التعميم على أشخاص جدد إذا كانت البيانات من شخص واحد.
+مصدر البيانات وخطوات تجهيزها موضّحة في [datasets/README.md](datasets/README.md). بعد تنزيل أرشيف Version 2 وفك ضغطه، ضع المجلد الذي يحتوي على مجلدات الإشارات داخل:
 
-## تفسير النتائج والقيود
-- نسبة الثقة التي تعرضها الواجهة ليست ضمانًا أن التنبؤ صحيح.
-- العينات المأخوذة من إطارات متتابعة قد تكون مترابطة؛ الدقة قد تبدو أعلى من الأداء الحقيقي.
-- للحصول على دليل أقوى، اجمع جلسات مستقلة واختبر على أشخاص لم يشاركوا في التدريب.
-- لا تربط أسماء الإشارات بكلمات فعلية إلا بعد التحقق من قاموس موثوق ومراجعة مستخدمين أو مختصين بلغة الإشارة المصرية.
-- هذا نموذج تعليمي بحثي وليس أداة تواصل مضمونة أو بديلًا لمترجم لغة إشارة.
+```text
+datasets/raw/
+```
 
-## النتائج
+ثم افتح موجه الأوامر **من جذر المشروع** وشغّل:
 
-نُفّذت التجربة بـ `compare_models.py` (حجب موضع كاميرا كامل، 3 تجارب بقيم seed مختلفة، 1500 عينة في 15 جلسة). تُحفظ التفاصيل والرسوم في مجلد `results/`.
+```bat
+py -3.11 inspect_esl_dataset.py
+```
 
-| المقياس | RAW | RELATIVE |
-|---|---|---|
-| متوسط الدقة | 61.6% | 99.98% |
-| أسوأ موضع | 33.3% | 99.9% |
-| زمن التنبؤ | ≈ 10 ms | ≈ 10 ms |
+سيعرض السكربت عدد ملفات الفيديو وتوزيعها حسب المجلدات، ويحفظ فهرسًا محليًا في `datasets/esl_video_inventory.csv`. أسماء المجلدات تُعامل كتسميات مبدئية فقط، ويجب مراجعة بنية البيانات والتسميات قبل أي تدريب. السكربت لا يدرّب نموذجًا ولا يغيّر النموذج المستخدم في التطبيق.
 
-بيانات التجربة من شخص واحد، فهذه نتيجة أولية عن حساسية النموذج لمكان اليد وليست دليلًا على التعميم لأشخاص جدد. لاختبار بيانات جديدة: `python collect_research_data.py --out new_signer.csv` ثم `python evaluate_external.py new_signer.csv`. وقبل العرض شغّل `preflight.bat`، وراجع `DEMO_GUIDE_AR.md`.
+**لا ترفع الفيديوهات أو ملف الفهرس إلى GitHub.** ملف `.gitignore` يستثني مجلد البيانات الخام والفهرس الناتج لأن البيانات كبيرة ومحفوظة محليًا.
 
-## Egyptian Sign Language model mode (separate from the original pose demo)
+## أدوات التجارب المحلية
 
-A separate desktop mode is available in `esl_app.py`. It downloads the third-party model artifacts on first launch and uses a word-level Egyptian Sign Language research model with 56 labels. It does not replace the original `app.py` or the experimental SIGN_1/2/3 model.
+- `collect_research_data.py`: جمع إطارات/عينات لفئات تجريبية ومواضع مختلفة.
+- `check_research_data.py`: فحص بيانات التجربة.
+- `train_research_model.py`: تدريب نموذج الإحداثيات النسبية من بيانات التجربة.
+- `compare_models.py`: مقارنة RAW وRELATIVE؛ النتائج الحالية تجارب أولية وليست دليلًا على التعميم على أشخاص جدد.
+- `evaluate_external.py`: تقييم نموذج على بيانات منفصلة.
+- `preflight.bat`: فحص سريع قبل العرض.
 
-### Windows quick start
+## الخصوصية والتراخيص
 
-1. Install Python 3.11 if it is not already installed.
-2. Double-click `run_esl_app.bat`. It creates a separate `.venv-esl` environment and installs `requirements-esl.txt`.
-3. Press **تشغيل النظام** in the app. The first launch downloads the model files and requires an internet connection.
-4. Keep `THIRD_PARTY_NOTICES.md` with the project and review the limitations before presenting accuracy claims.
-
-**Important:** this mode uses a third-party research model; it is not a complete sentence-level translator and its confidence score is not a verified accuracy percentage. Test the camera and model on this laptop before the presentation. The existing `run_app.bat` remains unchanged.
-
-## Egyptian Sign Language dataset (Mendeley)
-
-Dataset setup instructions and license attribution are in [`datasets/README.md`](datasets/README.md). After downloading and extracting the Version 2 video archive into `datasets/raw/`, run `python inspect_esl_dataset.py` to inventory the video files. The dataset is not committed to GitHub because the ZIP is about 393 MB. **This does not retrain or replace the current live ESL model**; training and validation are a separate next step.
+- لا تضف بيانات شخصية أو تسجيلات أشخاص إلى المستودع العام دون إذن مناسب.
+- احتفظ بإشعارات المصدر والترخيص عند إعادة توزيع ملفات أو أكواد الأطراف الثالثة.
+- راجع [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) و[مصدر مجموعة البيانات](https://data.mendeley.com/datasets/39tbt2jd7r/2).
+- لا تعرض نتائج دقة أو ادعاءات ترجمة كاملة قبل إجراء تقييم مستقل على بيانات لم تدخل في التدريب.
