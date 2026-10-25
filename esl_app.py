@@ -261,9 +261,10 @@ class SignBridgeESLApp:
             self.state_text = text
 
     def start(self):
-        if self.worker and self.worker.is_alive():
+        if self.running or (self.worker and self.worker.is_alive()):
             return
         self.stop_event.clear()
+        self.running = True
         self.start_button.config(state="disabled")
         self.update_state("جارٍ تنزيل ملفات النموذج المطلوبة (أول مرة فقط)...")
         self.worker = threading.Thread(target=self.worker_main, daemon=True)
@@ -385,8 +386,10 @@ class SignBridgeESLApp:
                     landmarker.close()
                 except Exception:
                     pass
-            self.update_state("النظام متوقف" if self.stop_event.is_set() else "توقف التشغيل بسبب خطأ أو انتهاء المعالجة.")
-            self.start_button.config(state="normal")
+            with self.lock:
+                self.state_text = ("النظام متوقف" if self.stop_event.is_set()
+                                   else "توقف التشغيل بسبب خطأ أو انتهاء المعالجة.")
+                self.running = False
 
     def refresh_ui(self):
         with self.lock:
@@ -395,6 +398,8 @@ class SignBridgeESLApp:
             prediction = self.prediction
             source_label = self.label_source
             confidence = self.confidence
+            running = self.running
+        self.start_button.config(state="disabled" if running else "normal")
         self.status_label.config(text=state)
         self.pred_label.config(text=prediction)
         self.source_label.config(text=f"Model label: {source_label}")
