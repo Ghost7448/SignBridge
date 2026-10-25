@@ -74,3 +74,17 @@ SignBridge مشروع رؤية حاسوبية يستخدم كاميرا الوي
 
 ## النتائج السابقة
 في تجربة المستخدم السابقة، كان متوسط الإحداثيات الخام 66.73% والنسبي 100% في اختبار حجب المواضع. اعتبر هذه نتيجة أولية مرتبطة بمجموعة البيانات المستخدمة آنذاك؛ أعد تشغيل المقارنة على البيانات الحالية قبل إدراج الأرقام في تقرير نهائي.
+
+
+## Egyptian Sign Language model mode (separate from the original pose demo)
+
+A separate desktop mode is available in `esl_app.py`. It downloads the third-party model artifacts on first launch and uses a word-level Egyptian Sign Language research model with 56 labels. It does not replace the original `app.py` or the experimental SIGN_1/2/3 model.
+
+### Windows quick start
+
+1. Install Python 3.11 if it is not already installed.
+2. Double-click `run_esl_app.bat`. It creates a separate `.venv-esl` environment and installs `requirements-esl.txt`.
+3. Press **تشغيل النظام** in the app. The first launch downloads the model files and requires an internet connection.
+4. Keep `THIRD_PARTY_NOTICES.md` with the project and review the limitations before presenting accuracy claims.
+
+**Important:** this mode uses a third-party research model; it is not a complete sentence-level translator and its confidence score is not a verified accuracy percentage. Test the camera and model on this laptop before the presentation. The existing `run_app.bat` remains unchanged.
