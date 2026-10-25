@@ -3,6 +3,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox
 import math
+from collections import Counter, deque
 
 import cv2
 import joblib
@@ -28,6 +29,30 @@ COLORS = {
     "green": "#58D6A5",
     "warning": "#F5C26B",
 }
+
+
+# Live-demo stabilisation: majority vote over the last few frames, plus a
+# minimum confidence below which the app says "unsure" instead of guessing.
+SMOOTHING_WINDOW = 5
+MIN_CONFIDENCE = 0.55
+
+
+class PredictionSmoother:
+    """Majority vote over recent predictions to stop the label flickering."""
+
+    def __init__(self, window=SMOOTHING_WINDOW):
+        self.history = deque(maxlen=window)
+
+    def update(self, label, confidence):
+        self.history.append((label, confidence))
+        votes = Counter(item[0] for item in self.history)
+        top_label, count = votes.most_common(1)[0]
+        confs = [c for lbl, c in self.history if lbl == top_label and c is not None]
+        avg_conf = sum(confs) / len(confs) if confs else None
+        return top_label, avg_conf, count
+
+    def reset(self):
+        self.history.clear()
 
 
 def extract_relative(hand, width, height):
@@ -75,6 +100,7 @@ class SignBridgeApp:
         self.last_prediction = None
         self.last_confidence = None
         self.speech_lock = threading.Lock()
+        self.smoother = PredictionSmoother()
 
         self.build_ui()
         self.load_model()
@@ -195,7 +221,21 @@ class SignBridgeApp:
             return
         try:
             # Use a low capture resolution to reduce CPU load on older laptops.
-            self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY)
+            backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
+            self.cap = None
+            for camera_index in (0, 1):
+                candidate = cv2.VideoCapture(camera_index, backend)
+                if candidate.isOpened():
+                    self.cap = candidate
+                    break
+                candidate.release()
+            if self.cap is None:
+                messagebox.showerror(
+                    "مشكلة في الكاميرا",
+                    "تعذر فتح الكاميرا. أغلق أي برنامج يستخدمها ثم حاول مرة أخرى."
+                )
+                return
+            self.smoother.reset()
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.cap.set(cv2.CAP_PROP_FPS, 24)
@@ -263,14 +303,24 @@ class SignBridgeApp:
                             except Exception:
                                 confidence = None
 
-                        self.last_prediction = prediction
-                        self.last_confidence = confidence
-                        self._last_prediction_text = prediction
-                        self.prediction_label.config(text=prediction)
-                        self.confidence_label.config(
-                            text=f"درجة ثقة النموذج: {confidence * 100:.1f}%"
-                            if confidence is not None else "درجة الثقة: غير متاحة"
-                        )
+                        prediction, confidence, _votes = self.smoother.update(prediction, confidence)
+                        if confidence is not None and confidence < MIN_CONFIDENCE:
+                            self.last_prediction = None
+                            self.last_confidence = confidence
+                            self._last_prediction_text = None
+                            self.prediction_label.config(text="غير متأكد — ثبّت اليد")
+                            self.confidence_label.config(
+                                text=f"درجة ثقة النموذج: {confidence * 100:.1f}%"
+                            )
+                        else:
+                            self.last_prediction = prediction
+                            self.last_confidence = confidence
+                            self._last_prediction_text = prediction
+                            self.prediction_label.config(text=prediction)
+                            self.confidence_label.config(
+                                text=f"درجة ثقة النموذج: {confidence * 100:.1f}%"
+                                if confidence is not None else "درجة الثقة: غير متاحة"
+                            )
                 else:
                     self._missed_hand_frames += 1
                     # Allow a few missed detections before clearing the display.
@@ -281,6 +331,7 @@ class SignBridgeApp:
                         self.confidence_label.config(text="درجة الثقة: —")
                         self.last_prediction = None
                         self.last_confidence = None
+                        self.smoother.reset()
 
             # Draw the most recently detected hand on every displayed frame.
             if self._last_hand_landmarks is not None and self._missed_hand_frames < 4:

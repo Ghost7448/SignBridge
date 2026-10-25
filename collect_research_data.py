@@ -3,9 +3,14 @@ import mediapipe as mp
 import csv
 import os
 import math
+import sys
 import uuid
 
 DATA_FILE = "research_data.csv"
+# Optional: python collect_research_data.py --out new_signer.csv
+# writes to a separate file (use it for held-out test data: new person / new lighting).
+if "--out" in sys.argv and sys.argv.index("--out") + 1 < len(sys.argv):
+    DATA_FILE = sys.argv[sys.argv.index("--out") + 1]
 SAMPLES_TO_COLLECT = 100
 FRAME_INTERVAL = 3
 

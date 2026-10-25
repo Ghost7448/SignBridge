@@ -323,15 +323,9 @@ class SignBridgeESLApp:
                     label_for_ui = "لم يتم رصد يد"
                     conf_for_ui = 0.0
                 else:
+                    shown = ARABIC_LABELS.get(label, label)
+                    label_for_ui = shown
                     conf_for_ui = float(confidence)
-                    # A conservative display gate hides low-score guesses.
-                    # This is not calibrated accuracy and cannot catch every confident error.
-                    if conf_for_ui < 0.70:
-                        shown = "إشارة غير مؤكدة"
-                        label_for_ui = shown
-                    else:
-                        shown = ARABIC_LABELS.get(label, label)
-                        label_for_ui = shown
                     cv2.rectangle(small, (0, 0), (320, 58), (11, 16, 32), -1)
                     cv2.putText(small, str(label)[:25], (8, 23), cv2.FONT_HERSHEY_SIMPLEX,
                                 0.48, (86, 214, 162), 2, cv2.LINE_AA)
