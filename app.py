@@ -194,7 +194,11 @@ class SignBridgeApp:
             )
             return
         try:
-            self.cap = cv2.VideoCapture(0)
+            # Use a low capture resolution to reduce CPU load on older laptops.
+            self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.cap.set(cv2.CAP_PROP_FPS, 24)
             if not self.cap.isOpened():
                 self.cap.release()
                 self.cap = None
@@ -224,46 +228,59 @@ class SignBridgeApp:
             success, frame = self.cap.read()
             if not success:
                 self.status_label.config(text="تعذر قراءة إطار من الكاميرا")
-                self.root.after(100, self.update_frame)
+                self.root.after(80, self.update_frame)
                 return
 
             frame = cv2.flip(frame, 1)
-            height, width = frame.shape[:2]
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            result = self.hands.process(rgb)
 
-            if result.multi_hand_landmarks:
-                hand = result.multi_hand_landmarks[0]
-                self.mp_draw.draw_landmarks(frame, hand, self.mp_hands.HAND_CONNECTIONS)
-                features = extract_relative(hand, width, height)
+            # Run MediaPipe on a smaller frame; this is much lighter on the CPU.
+            small = cv2.resize(frame, (320, 240), interpolation=cv2.INTER_AREA)
+            rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
 
-                if features is not None:
-                    prediction = str(self.model.predict(features)[0])
-                    confidence = None
-                    if hasattr(self.model, "predict_proba"):
-                        try:
-                            confidence = float(np.max(self.model.predict_proba(features)[0]))
-                        except Exception:
-                            confidence = None
+            # Skip alternate frames to keep the interface responsive.
+            if not hasattr(self, "_frame_counter"):
+                self._frame_counter = 0
+            self._frame_counter += 1
+            if self._frame_counter % 2 == 0:
+                result = self.hands.process(rgb)
 
-                    self.last_prediction = prediction
-                    self.last_confidence = confidence
-                    self.prediction_label.config(text=prediction)
-                    self.confidence_label.config(
-                        text=f"درجة ثقة النموذج: {confidence * 100:.1f}%"
-                        if confidence is not None else "درجة الثقة: غير متاحة"
+                if result.multi_hand_landmarks:
+                    hand = result.multi_hand_landmarks[0]
+                    self.mp_draw.draw_landmarks(
+                        small, hand, self.mp_hands.HAND_CONNECTIONS
                     )
-                    cv2.putText(
-                        frame, prediction, (15, 35), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.9, (88, 214, 165), 2
-                    )
-            else:
-                self.prediction_label.config(text="لم يتم رصد يد")
-                self.confidence_label.config(text="درجة الثقة: —")
-                self.last_prediction = None
-                self.last_confidence = None
+                    features = extract_relative(hand, 320, 240)
 
-            display = cv2.resize(frame, (640, 420))
+                    if features is not None:
+                        prediction = str(self.model.predict(features)[0])
+                        confidence = None
+                        if hasattr(self.model, "predict_proba"):
+                            try:
+                                confidence = float(
+                                    np.max(self.model.predict_proba(features)[0])
+                                )
+                            except Exception:
+                                confidence = None
+
+                        self.last_prediction = prediction
+                        self.last_confidence = confidence
+                        self.prediction_label.config(text=prediction)
+                        self.confidence_label.config(
+                            text=f"درجة ثقة النموذج: {confidence * 100:.1f}%"
+                            if confidence is not None else "درجة الثقة: غير متاحة"
+                        )
+                        cv2.putText(
+                            small, prediction, (10, 25), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.65, (88, 214, 165), 2
+                        )
+                else:
+                    self.prediction_label.config(text="لم يتم رصد يد")
+                    self.confidence_label.config(text="درجة الثقة: —")
+                    self.last_prediction = None
+                    self.last_confidence = None
+
+            # Display a modest preview size to reduce UI rendering overhead.
+            display = cv2.resize(small, (480, 360), interpolation=cv2.INTER_LINEAR)
             image = Image.fromarray(cv2.cvtColor(display, cv2.COLOR_BGR2RGB))
             self.photo = ImageTk.PhotoImage(image=image)
             self.camera_label.config(image=self.photo, text="")
@@ -271,7 +288,7 @@ class SignBridgeApp:
             self.status_label.config(text=f"حدث خطأ أثناء الكاميرا: {error}")
 
         if self.camera_running:
-            self.root.after(30, self.update_frame)
+            self.root.after(15, self.update_frame)
 
     def stop_camera(self):
         self.camera_running = False
