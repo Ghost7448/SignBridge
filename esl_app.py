@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image, ImageTk
 
 ROOT = Path(__file__).resolve().parent
-ARTIFACTS = ROOT / "esl_artifacts"
+ARTIFACTS = ROOT / "artifacts"
 MODEL_PATH = ARTIFACTS / "model_v2.keras"
 LABEL_PATH = ARTIFACTS / "label2idx.json"
 TASK_PATH = ARTIFACTS / "holistic_landmarker.task"
@@ -277,29 +277,15 @@ class SignBridgeESLApp:
 
     def worker_main(self):
         cap = None
-        landmarker = None
         try:
-            self.update_state("جارٍ تجهيز النموذج والمكتبات...")
+            self.update_state("جارٍ تجهيز النموذج وملفاته...")
             download_artifacts()
-            import tensorflow as tf
-            import mediapipe as mp
+            from src.inference import load_model, predict_frame, get_last_mp_results
 
-            model = tf.keras.models.load_model(str(MODEL_PATH), compile=False)
-            if tuple(model.input_shape[1:]) != (163,):
-                raise RuntimeError(f"Unexpected model input shape: {model.input_shape}")
-            with open(LABEL_PATH, "r", encoding="utf-8") as f:
-                label2idx = json.load(f)
-            idx2label = {int(index): label for label, index in label2idx.items()}
-            if len(idx2label) != int(model.output_shape[-1]):
-                raise RuntimeError("Label map and model output count do not match.")
+            # Use the upstream project's official preprocessing/inference path.
+            # This avoids subtle feature-order and normalization mismatches.
+            load_model(str(MODEL_PATH), str(LABEL_PATH))
 
-            options = mp.tasks.vision.HolisticLandmarkerOptions(
-                base_options=mp.tasks.BaseOptions(model_asset_path=str(TASK_PATH)),
-                running_mode=mp.tasks.vision.RunningMode.VIDEO,
-                min_face_detection_confidence=0.5,
-                min_hand_landmarks_confidence=0.5,
-            )
-            landmarker = mp.tasks.vision.HolisticLandmarker.create_from_options(options)
             cap = cv2.VideoCapture(0, cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -307,85 +293,56 @@ class SignBridgeESLApp:
             if not cap.isOpened():
                 raise RuntimeError("تعذر فتح الكاميرا. اقفل أي برنامج تاني بيستخدمها.")
 
-            self.update_state(f"النموذج جاهز • {len(idx2label)} فئة • الكاميرا تعمل")
-            frame_no = 0
-            timestamp_ms = 0
-            latest_points = [None, None]
-            missed = 0
-            votes = deque(maxlen=5)
-            last_label = None
-            last_conf = 0.0
+            with open(LABEL_PATH, "r", encoding="utf-8") as f:
+                label2idx = json.load(f)
+            self.update_state(f"النموذج جاهز • {len(label2idx)} فئة • الكاميرا تعمل")
+
             while not self.stop_event.is_set():
                 ok, frame = cap.read()
                 if not ok:
                     time.sleep(0.03)
                     continue
                 frame = cv2.flip(frame, 1)
+                # predict_frame performs the same resize, landmark extraction,
+                # normalization and feature assembly used by the upstream model.
+                label, confidence, emotion = predict_frame(
+                    frame, cached_emotion="neutral", raw=True
+                )
+
                 small = cv2.resize(frame, (320, 240), interpolation=cv2.INTER_AREA)
-                frame_no += 1
-
-                if frame_no % 3 == 0:
-                    rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-                    image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-                    timestamp_ms += 33
-                    results = landmarker.detect_for_video(image, timestamp_ms)
-                    raw = collect_features(results)
-                    latest_points = []
-                    for attr in ("left_hand_landmarks", "right_hand_landmarks"):
+                results = get_last_mp_results()
+                latest_points = [None, None]
+                if results is not None:
+                    for idx, attr in enumerate(("left_hand_landmarks", "right_hand_landmarks")):
                         hand = getattr(results, attr, None)
-                        latest_points.append([(p.x, p.y) for p in hand] if hand else None)
-
-                    if has_hand(raw):
-                        missed = 0
-                        normalized = normalize_landmarks(raw)
-                        emotion = np.zeros(7, dtype=np.float32)
-                        emotion[NEUTRAL_IDX] = 1.0
-                        features = np.concatenate([normalized, emotion]).reshape(1, 163)
-                        probs = model(features, training=False).numpy()[0]
-                        class_idx = int(np.argmax(probs))
-                        raw_label = idx2label[class_idx]
-                        confidence = float(probs[class_idx])
-                        votes.append((raw_label, confidence))
-                        counts = Counter(label for label, _ in votes)
-                        voted_label, vote_count = counts.most_common(1)[0]
-                        if vote_count >= 3:
-                            same = [conf for label, conf in votes if label == voted_label]
-                            last_label = voted_label
-                            last_conf = float(np.mean(same))
-                        elif last_label is None:
-                            last_label, last_conf = raw_label, confidence
-                    else:
-                        missed += 1
-                        if missed >= 3:
-                            latest_points = [None, None]
-                            votes.clear()
-                            last_label, last_conf = None, 0.0
-
+                        latest_points[idx] = [(p.x, p.y) for p in hand] if hand else None
                 draw_skeleton(small, latest_points)
-                if last_label:
-                    shown = ARABIC_LABELS.get(last_label, last_label)
+
+                if label == "__no_hands__":
+                    shown = "لم يتم رصد يد"
+                    label_for_ui = "لم يتم رصد يد"
+                    conf_for_ui = 0.0
+                else:
+                    shown = ARABIC_LABELS.get(label, label)
+                    label_for_ui = shown
+                    conf_for_ui = float(confidence)
                     cv2.rectangle(small, (0, 0), (320, 58), (11, 16, 32), -1)
-                    cv2.putText(small, shown[:25], (8, 23), cv2.FONT_HERSHEY_SIMPLEX,
-                                0.55, (86, 214, 162), 2, cv2.LINE_AA)
-                    cv2.putText(small, f"{last_conf * 100:.0f}% model score", (8, 46),
+                    cv2.putText(small, str(label)[:25], (8, 23), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.48, (86, 214, 162), 2, cv2.LINE_AA)
+                    cv2.putText(small, f"{conf_for_ui * 100:.0f}% model score", (8, 46),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.42, (240, 245, 255), 1, cv2.LINE_AA)
 
                 display = cv2.resize(small, (640, 480), interpolation=cv2.INTER_LINEAR)
                 with self.lock:
                     self.latest_frame = display
-                    self.prediction = ARABIC_LABELS.get(last_label, last_label) if last_label else "لم يتم رصد يد"
-                    self.label_source = last_label or "—"
-                    self.confidence = last_conf
+                    self.prediction = label_for_ui
+                    self.label_source = label
+                    self.confidence = conf_for_ui
         except Exception as exc:
             self.update_state(f"خطأ: {exc}")
         finally:
             if cap is not None:
                 cap.release()
-            if landmarker is not None:
-                try:
-                    landmarker.close()
-                except Exception:
-                    pass
             with self.lock:
                 self.state_text = ("النظام متوقف" if self.stop_event.is_set()
                                    else "توقف التشغيل بسبب خطأ أو انتهاء المعالجة.")
