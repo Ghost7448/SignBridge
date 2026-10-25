@@ -232,23 +232,24 @@ class SignBridgeApp:
                 return
 
             frame = cv2.flip(frame, 1)
-
-            # Run MediaPipe on a smaller frame; this is much lighter on the CPU.
             small = cv2.resize(frame, (320, 240), interpolation=cv2.INTER_AREA)
             rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
 
-            # Skip alternate frames to keep the interface responsive.
             if not hasattr(self, "_frame_counter"):
                 self._frame_counter = 0
+                self._missed_hand_frames = 0
+                self._last_hand_landmarks = None
+                self._last_prediction_text = None
+
             self._frame_counter += 1
+            # Process every other frame, but keep drawing the last known landmarks
+            # on the in-between frames so the hand skeleton does not flicker.
             if self._frame_counter % 2 == 0:
                 result = self.hands.process(rgb)
-
                 if result.multi_hand_landmarks:
-                    hand = result.multi_hand_landmarks[0]
-                    self.mp_draw.draw_landmarks(
-                        small, hand, self.mp_hands.HAND_CONNECTIONS
-                    )
+                    self._last_hand_landmarks = result.multi_hand_landmarks[0]
+                    self._missed_hand_frames = 0
+                    hand = self._last_hand_landmarks
                     features = extract_relative(hand, 320, 240)
 
                     if features is not None:
@@ -264,22 +265,34 @@ class SignBridgeApp:
 
                         self.last_prediction = prediction
                         self.last_confidence = confidence
+                        self._last_prediction_text = prediction
                         self.prediction_label.config(text=prediction)
                         self.confidence_label.config(
                             text=f"درجة ثقة النموذج: {confidence * 100:.1f}%"
                             if confidence is not None else "درجة الثقة: غير متاحة"
                         )
-                        cv2.putText(
-                            small, prediction, (10, 25), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.65, (88, 214, 165), 2
-                        )
                 else:
-                    self.prediction_label.config(text="لم يتم رصد يد")
-                    self.confidence_label.config(text="درجة الثقة: —")
-                    self.last_prediction = None
-                    self.last_confidence = None
+                    self._missed_hand_frames += 1
+                    # Allow a few missed detections before clearing the display.
+                    if self._missed_hand_frames >= 4:
+                        self._last_hand_landmarks = None
+                        self._last_prediction_text = None
+                        self.prediction_label.config(text="لم يتم رصد يد")
+                        self.confidence_label.config(text="درجة الثقة: —")
+                        self.last_prediction = None
+                        self.last_confidence = None
 
-            # Display a modest preview size to reduce UI rendering overhead.
+            # Draw the most recently detected hand on every displayed frame.
+            if self._last_hand_landmarks is not None and self._missed_hand_frames < 4:
+                self.mp_draw.draw_landmarks(
+                    small, self._last_hand_landmarks, self.mp_hands.HAND_CONNECTIONS
+                )
+                if self._last_prediction_text:
+                    cv2.putText(
+                        small, self._last_prediction_text, (10, 25),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (88, 214, 165), 2
+                    )
+
             display = cv2.resize(small, (480, 360), interpolation=cv2.INTER_LINEAR)
             image = Image.fromarray(cv2.cvtColor(display, cv2.COLOR_BGR2RGB))
             self.photo = ImageTk.PhotoImage(image=image)
