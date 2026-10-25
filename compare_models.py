@@ -1,59 +1,93 @@
 import csv
+import os
+import math
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
-DATA_FILE = "research_data.csv"
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(ROOT_DIR, "research_data.csv")
+POSITIONS = ["CENTER", "LEFT", "RIGHT", "TOP", "BOTTOM"]
 
-RAW_COLS = [
-    f"raw_{axis}{i}"
-    for i in range(21)
-    for axis in ("x", "y", "z")
-]
+RAW_COLS = [f"raw_{axis}{i}" for i in range(21) for axis in ("x", "y", "z")]
+REL_COLS = [f"rel_{axis}{i}" for i in range(21) for axis in ("x", "y", "z")]
 
-REL_COLS = [
-    f"rel_{axis}{i}"
-    for i in range(21)
-    for axis in ("x", "y", "z")
-]
 
-with open(DATA_FILE, newline="", encoding="utf-8") as f:
-    rows = list(csv.DictReader(f))
+def load_rows():
+    if not os.path.isfile(DATA_FILE):
+        raise SystemExit(f"Data file not found: {DATA_FILE}")
+    with open(DATA_FILE, newline="", encoding="utf-8-sig") as file:
+        rows = list(csv.DictReader(file))
+    if not rows:
+        raise SystemExit("research_data.csv has no samples.")
 
-positions = ["CENTER", "LEFT", "RIGHT", "TOP", "BOTTOM"]
-results = {"RAW": [], "RELATIVE": []}
+    valid = []
+    for row in rows:
+        if not row.get("label") or not row.get("position"):
+            continue
+        try:
+            values = [float(row[c]) for c in RAW_COLS + REL_COLS]
+            if len(values) == 126 and all(math.isfinite(v) for v in values):
+                valid.append(row)
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not valid:
+        raise SystemExit("No valid rows with complete raw_ and rel_ features were found.")
+    return valid
 
-for test_position in positions:
-    train = [r for r in rows if r["position"] != test_position]
-    test = [r for r in rows if r["position"] == test_position]
 
-    print(f"\nTesting unseen position: {test_position}")
+def evaluate(rows, test_position, columns):
+    train = [row for row in rows if row["position"].upper() != test_position]
+    test = [row for row in rows if row["position"].upper() == test_position]
+    if not train or not test:
+        return None, len(train), len(test)
+    y_train = [row["label"] for row in train]
+    y_test = [row["label"] for row in test]
+    if len(set(y_train)) < 2 or not set(y_test).issubset(set(y_train)):
+        return None, len(train), len(test)
 
-    y_train = [r["label"] for r in train]
-    y_test = [r["label"] for r in test]
-
-    for name, columns in [("RAW", RAW_COLS), ("RELATIVE", REL_COLS)]:
-        X_train = np.array([[float(r[c]) for c in columns] for r in train])
-        X_test = np.array([[float(r[c]) for c in columns] for r in test])
-
+    try:
+        X_train = np.asarray([[float(row[c]) for c in columns] for row in train])
+        X_test = np.asarray([[float(row[c]) for c in columns] for row in test])
         model = RandomForestClassifier(
-            n_estimators=150,
-            random_state=42,
-            class_weight="balanced",
-            n_jobs=-1
+            n_estimators=200, random_state=42, class_weight="balanced", n_jobs=-1
         )
         model.fit(X_train, y_train)
-        predictions = model.predict(X_test)
-        accuracy = accuracy_score(y_test, predictions) * 100
-        results[name].append(accuracy)
+        return accuracy_score(y_test, model.predict(X_test)) * 100, len(train), len(test)
+    except ValueError as error:
+        print(f"Skipped {test_position}: {error}")
+        return None, len(train), len(test)
 
-        print(f"{name}: {accuracy:.2f}%")
 
-print("\n========== SUMMARY ==========")
-print(f"Raw average:      {np.mean(results['RAW']):.2f}%")
-print(f"Relative average: {np.mean(results['RELATIVE']):.2f}%")
-print(
-    "Difference:       "
-    f"{np.mean(results['RELATIVE']) - np.mean(results['RAW']):+.2f} percentage points"
-)
-print("\nPreliminary results only; same signer and recording sessions.")
+def main():
+    rows = load_rows()
+    print(f"Valid samples loaded: {len(rows)}")
+    print("Evaluation: leave one camera position out")
+    results = {"RAW": [], "RELATIVE": []}
+
+    for position in POSITIONS:
+        if not any(r["position"].upper() == position for r in rows):
+            print(f"\n{position}: skipped (no test samples)")
+            continue
+        raw, _, test_count = evaluate(rows, position, RAW_COLS)
+        relative, _, _ = evaluate(rows, position, REL_COLS)
+        print(f"\nHeld-out position: {position} | test samples: {test_count}")
+        print(f"RAW:      {raw:.2f}%" if raw is not None else "RAW:      unavailable")
+        print(f"RELATIVE: {relative:.2f}%" if relative is not None else "RELATIVE: unavailable")
+        if raw is not None:
+            results["RAW"].append(raw)
+        if relative is not None:
+            results["RELATIVE"].append(relative)
+
+    print("\n========== SUMMARY ==========")
+    raw_avg = float(np.mean(results["RAW"])) if results["RAW"] else None
+    rel_avg = float(np.mean(results["RELATIVE"])) if results["RELATIVE"] else None
+    print(f"Raw average:      {raw_avg:.2f}%" if raw_avg is not None else "Raw average:      unavailable")
+    print(f"Relative average: {rel_avg:.2f}%" if rel_avg is not None else "Relative average: unavailable")
+    if raw_avg is not None and rel_avg is not None:
+        print(f"Difference:       {rel_avg - raw_avg:+.2f} percentage points")
+    print("\nResearch caution: these results are preliminary and may not generalize to new signers.")
+
+
+if __name__ == "__main__":
+    main()
