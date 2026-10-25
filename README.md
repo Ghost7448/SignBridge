@@ -98,3 +98,7 @@ A separate desktop mode is available in `esl_app.py`. It downloads the third-par
 4. Keep `THIRD_PARTY_NOTICES.md` with the project and review the limitations before presenting accuracy claims.
 
 **Important:** this mode uses a third-party research model; it is not a complete sentence-level translator and its confidence score is not a verified accuracy percentage. Test the camera and model on this laptop before the presentation. The existing `run_app.bat` remains unchanged.
+
+## Egyptian Sign Language dataset (Mendeley)
+
+Dataset setup instructions and license attribution are in [`datasets/README.md`](datasets/README.md). After downloading and extracting the Version 2 video archive into `datasets/raw/`, run `python inspect_esl_dataset.py` to inventory the video files. The dataset is not committed to GitHub because the ZIP is about 393 MB. **This does not retrain or replace the current live ESL model**; training and validation are a separate next step.
