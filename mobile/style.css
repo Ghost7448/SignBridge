@@ -1,5 +1,6 @@
 :root{color-scheme:dark;--bg:#0b1020;--panel:#151d31;--text:#f4f7ff;--muted:#a8b3cc;--accent:#5b8cff;--green:#56d6a2;--border:#27334e}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:radial-gradient(ellipse at top,#182445 0,var(--bg) 56%);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 .app{width:min(100%,760px);margin:auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));display:grid;gap:16px}
 .top{display:flex;align-items:center;gap:12px}.brand-mark{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#5b8cff,#8a67ff);font-size:26px;font-weight:900}
