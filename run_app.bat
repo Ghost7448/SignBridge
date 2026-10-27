@@ -5,7 +5,7 @@ title SignBridge - Simple Demo
 
 echo ================================================
 echo                 SignBridge
-echo        Simple Hand Pose Demo (5 poses)
+echo        Simple Hand Pose Demo (10 poses)
 echo ================================================
 echo.
 
