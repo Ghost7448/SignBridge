@@ -3,8 +3,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - "mobile/**"
       - ".github/workflows/build-android.yml"
@@ -31,9 +30,17 @@ jobs:
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: "platform-tools"
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -n 1)"
+          fi
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Prepare web assets
         working-directory: mobile
@@ -41,9 +48,9 @@ jobs:
           mkdir -p www
           cp index.html style.css app.js manifest.webmanifest www/
 
-      - name: Install Capacitor
+      - name: Install Capacitor dependencies
         working-directory: mobile
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Generate Android project
         working-directory: mobile
