@@ -1,17 +1,20 @@
 {
   "name": "signbridge-mobile",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "SignBridge mobile wrapper",
+  "description": "SignBridge mobile app",
   "scripts": {
+    "build": "vite build",
     "android:init": "cap add android",
     "android:sync": "cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
-    "@capacitor/core": "^7.4.3"
+    "@capacitor/core": "^7.4.3",
+    "@mediapipe/tasks-vision": "0.10.22"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.4.3"
+    "@capacitor/cli": "^7.4.3",
+    "vite": "^6.4.1"
   }
 }
