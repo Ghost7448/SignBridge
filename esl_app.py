@@ -199,6 +199,7 @@ class SignBridgeESLApp:
         self.confidence = 0.0
         self.running = False
         self.photo = None
+        self.last_error = None
 
         header = tk.Frame(root, bg=BG)
         header.pack(fill="x", padx=22, pady=(18, 8))
@@ -264,6 +265,7 @@ class SignBridgeESLApp:
         if self.running or (self.worker and self.worker.is_alive()):
             return
         self.stop_event.clear()
+        self.last_error = None
         self.running = True
         self.start_button.config(state="disabled")
         self.update_state("جارٍ تنزيل ملفات النموذج المطلوبة (أول مرة فقط)...")
@@ -339,13 +341,18 @@ class SignBridgeESLApp:
                     self.label_source = label
                     self.confidence = conf_for_ui
         except Exception as exc:
+            self.last_error = str(exc)
             self.update_state(f"خطأ: {exc}")
         finally:
             if cap is not None:
                 cap.release()
             with self.lock:
-                self.state_text = ("النظام متوقف" if self.stop_event.is_set()
-                                   else "توقف التشغيل بسبب خطأ أو انتهاء المعالجة.")
+                if self.stop_event.is_set():
+                    self.state_text = "النظام متوقف"
+                elif self.last_error:
+                    self.state_text = f"خطأ: {self.last_error}"
+                else:
+                    self.state_text = "انتهت المعالجة."
                 self.running = False
 
     def refresh_ui(self):
