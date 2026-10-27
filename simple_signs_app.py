@@ -1,7 +1,7 @@
 """
-SignBridge Simple Demo
-Local webcam demo for a small set of hand poses using MediaPipe Hands.
-This is a pose demo, not a validated Egyptian Sign Language translator.
+SignBridge
+Local hand-pose recognition powered by MediaPipe Hands.
+This application maps a small set of visible hand poses to simple Arabic labels; it is not a complete sign-language translator.
 """
 import tkinter as tk
 from tkinter import messagebox
@@ -68,7 +68,7 @@ def classify_pose(hand, handedness_label="Right"):
 class SignBridgeSimple:
     def __init__(self, root):
         self.root = root
-        root.title("SignBridge | عرض مبسّط")
+        root.title("SignBridge | التعرّف على إشارات اليد")
         root.geometry("1100x760")
         root.minsize(850, 620)
         root.configure(bg=BG)
@@ -89,7 +89,7 @@ class SignBridgeSimple:
         header.pack(fill="x", padx=22, pady=16)
         tk.Label(header, text="SignBridge", font=("Segoe UI", 27, "bold"),
                  bg=BG, fg=TEXT).pack(anchor="w")
-        tk.Label(header, text="كلمات بسيطة بالمصري — 9 أوضاع لليد (عرض تجريبي)",
+        tk.Label(header, text="تعرّف على 10 أوضاع لليد واعرض معناها المبسّط",
                  font=("Segoe UI", 12), bg=BG, fg=MUTED).pack(anchor="w", pady=(4, 0))
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=22, pady=(0, 16))
@@ -128,7 +128,7 @@ class SignBridgeSimple:
         self.start_btn.pack(side="left")
         tk.Button(controls, text="إيقاف", command=self.stop, bg=PANEL, fg=TEXT,
                   relief="flat", font=("Segoe UI", 12), padx=20, pady=10).pack(side="left", padx=8)
-        tk.Label(self.root, text="تنبيه: دي تسميات بسيطة لوضعيات اليد للتجربة، مش ترجمة معتمدة للغة الإشارة المصرية. المعنى الحقيقي ممكن يتغير حسب الحركة والسياق.",
+        tk.Label(self.root, text="ملاحظة: يعرض التطبيق معاني مبسّطة لبعض أوضاع اليد، ولا يُعد مترجمًا كاملًا أو معتمدًا للغة الإشارة المصرية. قد تختلف النتيجة حسب زاوية اليد والإضاءة.",
                  bg=BG, fg=MUTED, wraplength=1050, justify="left",
                  font=("Segoe UI", 9)).pack(fill="x", padx=22, pady=(0, 14))
 
