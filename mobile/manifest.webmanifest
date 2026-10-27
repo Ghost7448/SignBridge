@@ -1,0 +1,11 @@
+{
+  "name": "SignBridge",
+  "short_name": "SignBridge",
+  "description": "التعرّف على أوضاع اليد",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020"
+}
