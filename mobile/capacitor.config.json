@@ -1,7 +1,7 @@
 {
   "appId": "com.signbridge.app",
   "appName": "SignBridge",
-  "webDir": ".",
+  "webDir": "www",
   "server": {
     "androidScheme": "https"
   }
