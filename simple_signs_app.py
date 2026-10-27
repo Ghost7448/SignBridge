@@ -89,8 +89,6 @@ class SignBridgeSimple:
         header.pack(fill="x", padx=22, pady=16)
         tk.Label(header, text="SignBridge", font=("Segoe UI", 27, "bold"),
                  bg=BG, fg=TEXT).pack(anchor="w")
-        tk.Label(header, text="تعرّف على 10 أوضاع لليد واعرض معناها المبسّط",
-                 font=("Segoe UI", 12), bg=BG, fg=MUTED).pack(anchor="w", pady=(4, 0))
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=22, pady=(0, 16))
         # Canvas does not request a larger window when the displayed frame changes size.
@@ -112,13 +110,6 @@ class SignBridgeSimple:
         self.status = tk.Label(panel, text="الكاميرا متوقفة", bg=PANEL, fg=AMBER,
                                font=("Segoe UI", 10), wraplength=250, justify="right")
         self.status.pack(fill="x", padx=18, pady=(0, 16))
-        tk.Label(panel, text="الحركات المتاحة", bg=PANEL, fg=TEXT,
-                 font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=18, pady=(8, 8))
-        for s in ["👍 تمام", "👎 لأ / مش موافق", "✋ أهلاً / استنى", "✌️ اتنين",
-                  "✊ قبضة مقفولة", "☝️ واحد", "🤟 تلاتة",
-                  "🖖 أربعة", "🤘 علامة الروك", "🤙 الخنصر بس"]:
-            tk.Label(panel, text=s, bg=PANEL, fg=MUTED, font=("Segoe UI", 12),
-                     anchor="e").pack(fill="x", padx=18, pady=4)
         controls = tk.Frame(self.root, bg=BG)
         controls.pack(fill="x", padx=22, pady=(0, 10))
         self.start_btn = tk.Button(controls, text="تشغيل الكاميرا", command=self.start,
@@ -128,9 +119,6 @@ class SignBridgeSimple:
         self.start_btn.pack(side="left")
         tk.Button(controls, text="إيقاف", command=self.stop, bg=PANEL, fg=TEXT,
                   relief="flat", font=("Segoe UI", 12), padx=20, pady=10).pack(side="left", padx=8)
-        tk.Label(self.root, text="ملاحظة: يعرض التطبيق معاني مبسّطة لبعض أوضاع اليد، ولا يُعد مترجمًا كاملًا أو معتمدًا للغة الإشارة المصرية. قد تختلف النتيجة حسب زاوية اليد والإضاءة.",
-                 bg=BG, fg=MUTED, wraplength=1050, justify="left",
-                 font=("Segoe UI", 9)).pack(fill="x", padx=22, pady=(0, 14))
 
     def start(self):
         if self.running:
