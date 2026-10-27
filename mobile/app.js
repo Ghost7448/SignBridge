@@ -1,4 +1,6 @@
 const video = document.querySelector("#camera");
+const canvas = document.querySelector("#landmarks");
+const ctx = canvas.getContext("2d");
 const startButton = document.querySelector("#start");
 const stopButton = document.querySelector("#stop");
 const result = document.querySelector("#result");
@@ -53,6 +55,67 @@ async function ensureModel() {
     runningMode: "VIDEO",
     numHands: 1
   });
+}
+
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],[0,17]
+];
+
+function clearLandmarks() {
+  if (!canvas || !ctx) return;
+  const rect = canvas.getBoundingClientRect();
+  ctx.clearRect(0, 0, rect.width, rect.height);
+}
+
+function drawLandmarks(points) {
+  if (!canvas || !ctx || !points || !video.videoWidth || !video.videoHeight) return;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const width = Math.round(rect.width * dpr);
+  const height = Math.round(rect.height * dpr);
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  // Match the video's object-fit: contain geometry, including letterbox margins.
+  const scale = Math.min(rect.width / video.videoWidth, rect.height / video.videoHeight);
+  const shownWidth = video.videoWidth * scale;
+  const shownHeight = video.videoHeight * scale;
+  const offsetX = (rect.width - shownWidth) / 2;
+  const offsetY = (rect.height - shownHeight) / 2;
+  const xy = points.map(p => ({
+    x: offsetX + p.x * shownWidth,
+    y: offsetY + p.y * shownHeight
+  }));
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#45f0b5";
+  ctx.lineWidth = 3;
+  for (const [a, b] of HAND_CONNECTIONS) {
+    ctx.beginPath();
+    ctx.moveTo(xy[a].x, xy[a].y);
+    ctx.lineTo(xy[b].x, xy[b].y);
+    ctx.stroke();
+  }
+  for (const p of xy) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#147cff";
+    ctx.stroke();
+  }
 }
 
 async function start() {
@@ -122,12 +185,14 @@ function loop() {
       const output = landmarker.detectForVideo(video, performance.now());
       const hand = output.landmarks?.[0];
       if (hand) {
+        drawLandmarks(hand);
         recent.push(classify(hand));
         if (recent.length > 5) recent.shift();
         const counts = recent.reduce((acc, item) => (acc[item] = (acc[item] || 0) + 1, acc), {});
         result.textContent = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
         status.textContent = "تم رصد يد";
       } else {
+        clearLandmarks();
         recent = [];
         result.textContent = "مش شايف إيد";
         if (!loading.hidden) status.textContent = "بنحمّل التعرّف...";
@@ -145,6 +210,7 @@ function stop() {
   if (stream) stream.getTracks().forEach(track => track.stop());
   stream = null;
   video.srcObject = null;
+  clearLandmarks();
   recent = [];
   result.textContent = "جاهز";
   status.textContent = "الكاميرا متوقفة";
