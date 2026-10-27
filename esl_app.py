@@ -305,7 +305,7 @@ class SignBridgeESLApp:
 
             with open(LABEL_PATH, "r", encoding="utf-8") as f:
                 label2idx = json.load(f)
-            self.update_state(f"النموذج جاهز • {len(label2idx)} فئة • الكاميرا تعمل")
+            self.update_state(f"النموذج جاهز • 10 مفردات للعرض من أصل {len(label2idx)} فئة • الكاميرا تعمل")
 
             while not self.stop_event.is_set():
                 ok, frame = cap.read()
