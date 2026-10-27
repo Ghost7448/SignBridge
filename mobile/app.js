@@ -59,34 +59,39 @@ async function ensureModel() {
 }
 
 /*
- * Match the overlay to the actual video image rectangle.
- * The video element fills a 4:3 container with object-fit:contain, so
- * normalized landmarks must be offset for any letterboxing before drawing.
+ * Map MediaPipe's normalized coordinates to the visible video rectangle.
+ * The preview is mirrored with CSS, so mirror X numerically for the canvas
+ * instead of flipping the canvas element (which also flips letterbox offsets).
  */
 function canvasMetrics() {
-  const rect = canvas.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const cssWidth = rect.width;
-  const cssHeight = rect.height;
-  if (!cssWidth || !cssHeight || !video.videoWidth || !video.videoHeight) return null;
+  if (!canvasRect.width || !canvasRect.height ||
+      !video.videoWidth || !video.videoHeight) return null;
 
-  const backingWidth = Math.round(cssWidth * dpr);
-  const backingHeight = Math.round(cssHeight * dpr);
+  const backingWidth = Math.round(canvasRect.width * dpr);
+  const backingHeight = Math.round(canvasRect.height * dpr);
   if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
     canvas.width = backingWidth;
     canvas.height = backingHeight;
   }
 
-  const scale = Math.min(cssWidth / video.videoWidth, cssHeight / video.videoHeight);
+  // Match object-fit: contain exactly, including any bars around the video.
+  const scale = Math.min(videoRect.width / video.videoWidth,
+                         videoRect.height / video.videoHeight);
   const imageWidth = video.videoWidth * scale;
   const imageHeight = video.videoHeight * scale;
   return {
     dpr,
     width: backingWidth,
     height: backingHeight,
-    scale: scale * dpr,
-    offsetX: ((cssWidth - imageWidth) / 2) * dpr,
-    offsetY: ((cssHeight - imageHeight) / 2) * dpr
+    imageWidth: imageWidth * dpr,
+    imageHeight: imageHeight * dpr,
+    offsetX: (videoRect.left - canvasRect.left +
+              (videoRect.width - imageWidth) / 2) * dpr,
+    offsetY: (videoRect.top - canvasRect.top +
+              (videoRect.height - imageHeight) / 2) * dpr
   };
 }
 
@@ -102,8 +107,9 @@ function drawPoints(points) {
 
   ctx.clearRect(0, 0, m.width, m.height);
   const xy = points.map(p => ({
-    x: m.offsetX + p.x * video.videoWidth * m.scale,
-    y: m.offsetY + p.y * video.videoHeight * m.scale
+    // The camera preview is mirrored; reflect X once to match it.
+    x: m.offsetX + (1 - p.x) * m.imageWidth,
+    y: m.offsetY + p.y * m.imageHeight
   }));
 
   ctx.lineCap = "round";
