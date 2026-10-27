@@ -9,7 +9,7 @@ from collections import deque, Counter
 import threading
 import cv2
 import mediapipe as mp
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps
 
 BG = "#0b1020"
 PANEL = "#151d31"
@@ -38,28 +38,28 @@ def classify_pose(hand, handedness_label="Right"):
 
     # 👍 A clear raised thumb while the four fingers are folded.
     if thumb_up and folded_count >= 3:
-        return ("👍  تمام / ممتاز", 0.82)
+        return ("👍  تمام", 0.82)
     # ✋ Open palm: a visual greeting approximation, not a full sign phrase.
     if idx and mid and ring and pinky and thumb_up:
-        return ("✋  أهلاً / تحية", 0.78)
+        return ("✋  أهلاً / استنى", 0.78)
     # Four fingers up while the thumb stays folded.
     if idx and mid and ring and pinky and not thumb_up:
-        return ("🖖  أربعة أصابع", 0.70)
+        return ("🖖  أربعة", 0.70)
     # Three raised fingers.
     if idx and mid and ring and not pinky:
-        return ("🤟  ثلاثة أصابع", 0.72)
+        return ("🤟  تلاتة", 0.72)
     # Index and pinky raised: commonly called the rock-horns pose.
     if idx and not mid and not ring and pinky:
-        return ("🤘  إشارة الروك", 0.72)
+        return ("🤘  علامة الروك", 0.72)
     # Pinky alone.
     if not idx and not mid and not ring and pinky:
-        return ("🤙  الخنصر مرفوع", 0.68)
+        return ("🤙  الخنصر بس", 0.68)
     if idx and mid and not ring and not pinky:
-        return ("✌️  سلام / إشارة النصر", 0.72)
+        return ("✌️  اتنين / علامة النصر", 0.72)
     if not idx and not mid and not ring and not pinky:
-        return ("✊  قبضة اليد", 0.70)
+        return ("✊  قبضة مقفولة", 0.70)
     if idx and not mid and not ring and not pinky:
-        return ("☝️  السبابة", 0.68)
+        return ("☝️  واحد", 0.68)
     return ("غير معروف — جرّب وضع اليد بوضوح", 0.0)
 
 class SignBridgeSimple:
@@ -86,7 +86,7 @@ class SignBridgeSimple:
         header.pack(fill="x", padx=22, pady=16)
         tk.Label(header, text="SignBridge", font=("Segoe UI", 27, "bold"),
                  bg=BG, fg=TEXT).pack(anchor="w")
-        tk.Label(header, text="عرض تجريبي للتعرّف على أوضاع اليد — 9 حركات",
+        tk.Label(header, text="كلمات بسيطة بالمصري — 9 أوضاع لليد (عرض تجريبي)",
                  font=("Segoe UI", 12), bg=BG, fg=MUTED).pack(anchor="w", pady=(4, 0))
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=22, pady=(0, 16))
@@ -107,9 +107,9 @@ class SignBridgeSimple:
         self.status.pack(fill="x", padx=18, pady=(0, 16))
         tk.Label(panel, text="الحركات المتاحة", bg=PANEL, fg=TEXT,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=18, pady=(8, 8))
-        for s in ["👍 تمام / ممتاز", "✋ أهلاً / تحية تقريبية", "✌️ سلام / النصر",
-                  "✊ قبضة اليد", "☝️ السبابة", "🤟 ثلاثة أصابع",
-                  "🖖 أربعة أصابع", "🤘 إشارة الروك", "🤙 الخنصر مرفوع"]:
+        for s in ["👍 تمام", "✋ أهلاً / استنى", "✌️ اتنين / علامة النصر",
+                  "✊ قبضة مقفولة", "☝️ واحد", "🤟 تلاتة",
+                  "🖖 أربعة", "🤘 علامة الروك", "🤙 الخنصر بس"]:
             tk.Label(panel, text=s, bg=PANEL, fg=MUTED, font=("Segoe UI", 12),
                      anchor="e").pack(fill="x", padx=18, pady=4)
         controls = tk.Frame(self.root, bg=BG)
@@ -121,7 +121,7 @@ class SignBridgeSimple:
         self.start_btn.pack(side="left")
         tk.Button(controls, text="إيقاف", command=self.stop, bg=PANEL, fg=TEXT,
                   relief="flat", font=("Segoe UI", 12), padx=20, pady=10).pack(side="left", padx=8)
-        tk.Label(self.root, text="تنبيه: هذا نموذج عرض تجريبي لوضعيات اليد، وليس مترجمًا معتمدًا للغة الإشارة المصرية. «سلام عليكم» عبارة حركية كاملة وقد لا يمكن استنتاجها من وضع ثابت واحد.",
+        tk.Label(self.root, text="تنبيه: دي تسميات بسيطة لوضعيات اليد للتجربة، مش ترجمة معتمدة للغة الإشارة المصرية. المعنى الحقيقي ممكن يتغير حسب الحركة والسياق.",
                  bg=BG, fg=MUTED, wraplength=1050, justify="left",
                  font=("Segoe UI", 9)).pack(fill="x", padx=22, pady=(0, 14))
 
@@ -163,8 +163,11 @@ class SignBridgeSimple:
             self.result.config(text="مش شايف إيد — حطها قدام الكاميرا", fg=TEXT)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image = Image.fromarray(rgb)
-        max_w, max_h = 740, 560
-        image.thumbnail((max_w, max_h))
+        # Fill the camera panel and adapt to the current window size.
+        # Crop excess edges proportionally instead of leaving blank margins.
+        target_w = max(1, self.video.winfo_width())
+        target_h = max(1, self.video.winfo_height())
+        image = ImageOps.fit(image, (target_w, target_h), method=Image.Resampling.LANCZOS)
         self.photo = ImageTk.PhotoImage(image)
         self.video.config(image=self.photo, text="")
         self.root.after(25, self.update_frame)
