@@ -1,5 +1,3 @@
-import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22";
-
 const video = document.querySelector("#camera");
 const startButton = document.querySelector("#start");
 const stopButton = document.querySelector("#stop");
@@ -9,6 +7,8 @@ const placeholder = document.querySelector("#camera-placeholder");
 const loading = document.querySelector("#loading");
 let stream = null;
 let landmarker = null;
+let FilesetResolver = null;
+let HandLandmarker = null;
 let active = false;
 let lastVideoTime = -1;
 let recent = [];
@@ -37,6 +37,11 @@ function classify(lm) {
 async function ensureModel() {
   if (landmarker) return;
   loading.hidden = false;
+  // Load the AI library only after the camera is already running. A blocked or slow CDN
+  // must not prevent the Start button handler from being registered.
+  if (!FilesetResolver || !HandLandmarker) {
+    ({ FilesetResolver, HandLandmarker } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm"));
+  }
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
   );
