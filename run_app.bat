@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title SignBridge - Simple Demo
+title SignBridge
 
 echo ================================================
 echo                 SignBridge
-echo        Simple Hand Pose Demo (10 poses)
+echo        Hand Pose Recognition
 echo ================================================
 echo.
 
