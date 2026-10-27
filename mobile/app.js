@@ -37,57 +37,99 @@ function classify(lm) {
 async function ensureModel() {
   if (landmarker) return;
   loading.hidden = false;
-  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm");
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+  );
   landmarker = await HandLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "CPU" },
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      delegate: "CPU"
+    },
     runningMode: "VIDEO",
     numHands: 1
   });
-  loading.hidden = true;
 }
 
 async function start() {
-  if (active) return;
+  if (active || stream) return;
   if (!navigator.mediaDevices?.getUserMedia) {
-    status.textContent = "الكاميرا تحتاج HTTPS أو تشغيلًا محليًا آمنًا.";
+    status.textContent = "المتصفح منع الكاميرا. تأكد إن التطبيق محدّث وافتحه من جديد.";
     return;
   }
+
+  startButton.disabled = true;
+  status.textContent = "بنفتح الكاميرا...";
   try {
-    startButton.disabled = true;
-    status.textContent = "جارٍ تجهيز الكاميرا...";
-    await ensureModel();
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    // Open camera first so users see the live preview even while the AI model downloads.
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
     video.srcObject = stream;
+    await new Promise((resolve, reject) => {
+      if (video.readyState >= 2) return resolve();
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("تعذر عرض صورة الكاميرا"));
+      setTimeout(() => reject(new Error("الكاميرا لم تستجب في الوقت المناسب")), 12000);
+    });
     await video.play();
-    active = true;
     placeholder.hidden = true;
+    active = true;
     stopButton.disabled = false;
-    status.textContent = "الكاميرا شغالة — خلي إيدك واضحة";
+    status.textContent = "الكاميرا شغالة — بنجهّز التعرّف...";
     requestAnimationFrame(loop);
+
+    try {
+      await ensureModel();
+      if (active) status.textContent = "الكاميرا شغالة — خلي إيدك واضحة";
+    } catch (modelError) {
+      console.error("SignBridge model loading failed:", modelError);
+      if (active) status.textContent = "الكاميرا شغالة، لكن التعرّف محتاج إنترنت. جرّب اتصال الإنترنت.";
+    } finally {
+      loading.hidden = true;
+      startButton.disabled = active;
+    }
   } catch (error) {
-    console.error(error);
-    status.textContent = "تعذر تشغيل الكاميرا أو تحميل نموذج التعرّف. تأكد من السماح بالكاميرا والاتصال بالإنترنت.";
-    startButton.disabled = false;
+    console.error("SignBridge camera error:", error);
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    stream = null;
+    video.srcObject = null;
+    active = false;
+    placeholder.hidden = false;
     loading.hidden = true;
+    startButton.disabled = false;
+    stopButton.disabled = true;
+    if (error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError") {
+      status.textContent = "اسمح لـ SignBridge باستخدام الكاميرا من إعدادات الموبايل.";
+    } else if (error?.name === "NotFoundError") {
+      status.textContent = "مش لاقيين كاميرا متاحة على الجهاز.";
+    } else {
+      status.textContent = "الكاميرا مشتغلتش. راجع إذن الكاميرا واقفل أي تطبيق بيستخدمها.";
+    }
   }
 }
 
 function loop() {
   if (!active) return;
-  if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+  if (landmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
-    const output = landmarker.detectForVideo(video, performance.now());
-    const hand = output.landmarks?.[0];
-    if (hand) {
-      recent.push(classify(hand));
-      if (recent.length > 5) recent.shift();
-      const counts = recent.reduce((acc, item) => (acc[item] = (acc[item] || 0) + 1, acc), {});
-      result.textContent = Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
-      status.textContent = "تم رصد يد";
-    } else {
-      recent = [];
-      result.textContent = "مش شايف إيد";
-      status.textContent = "حط إيدك قدام الكاميرا في إضاءة كويسة";
+    try {
+      const output = landmarker.detectForVideo(video, performance.now());
+      const hand = output.landmarks?.[0];
+      if (hand) {
+        recent.push(classify(hand));
+        if (recent.length > 5) recent.shift();
+        const counts = recent.reduce((acc, item) => (acc[item] = (acc[item] || 0) + 1, acc), {});
+        result.textContent = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+        status.textContent = "تم رصد يد";
+      } else {
+        recent = [];
+        result.textContent = "مش شايف إيد";
+        if (!loading.hidden) status.textContent = "بنحمّل التعرّف...";
+        else status.textContent = "حط إيدك قدام الكاميرا في إضاءة كويسة";
+      }
+    } catch (error) {
+      console.error("SignBridge detection error:", error);
     }
   }
   requestAnimationFrame(loop);
@@ -102,6 +144,7 @@ function stop() {
   result.textContent = "جاهز";
   status.textContent = "الكاميرا متوقفة";
   placeholder.hidden = false;
+  loading.hidden = true;
   startButton.disabled = false;
   stopButton.disabled = true;
 }
