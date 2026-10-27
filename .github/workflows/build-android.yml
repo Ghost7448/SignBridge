@@ -68,9 +68,9 @@ jobs:
           camera_permission = '<uses-permission android:name="android.permission.CAMERA" />'
           camera_feature = '<uses-feature android:name="android.hardware.camera.any" android:required="false" />'
           if camera_permission not in text:
-              text = text.replace("<application", camera_permission + "\\n    <application", 1)
+              text = text.replace("<application", camera_permission + "\n    <application", 1)
           if camera_feature not in text:
-              text = text.replace("<application", camera_feature + "\\n    <application", 1)
+              text = text.replace("<application", camera_feature + "\n    <application", 1)
           manifest.write_text(text, encoding="utf-8")
 
           # Request Android's runtime permission before the WebView opens the camera.
