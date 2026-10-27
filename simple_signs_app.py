@@ -6,7 +6,6 @@ This is a pose demo, not a validated Egyptian Sign Language translator.
 import tkinter as tk
 from tkinter import messagebox
 from collections import deque, Counter
-import threading
 import cv2
 import mediapipe as mp
 from PIL import Image, ImageTk, ImageOps
@@ -35,7 +34,11 @@ def classify_pose(hand, handedness_label="Right"):
     # to be mistaken for a thumbs-up.
     thumb_up = lm[4].y < lm[3].y - 0.04 and lm[4].y < lm[2].y - 0.04
     folded_count = sum(not x for x in (idx, mid, ring, pinky))
+    thumb_down = lm[4].y > lm[3].y + 0.06 and lm[4].y > lm[2].y + 0.02
 
+    # 👎 A clear downward thumb with the other fingers mostly folded.
+    if thumb_down and folded_count >= 3:
+        return ("👎  لأ / مش موافق", 0.78)
     # 👍 A clear raised thumb while the four fingers are folded.
     if thumb_up and folded_count >= 3:
         return ("👍  تمام", 0.82)
@@ -90,9 +93,13 @@ class SignBridgeSimple:
                  font=("Segoe UI", 12), bg=BG, fg=MUTED).pack(anchor="w", pady=(4, 0))
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=22, pady=(0, 16))
-        self.video = tk.Label(body, bg="#050811", text="اضغط «تشغيل الكاميرا»",
-                              fg=MUTED, font=("Segoe UI", 16))
+        # Canvas does not request a larger window when the displayed frame changes size.
+        # This prevents the old Label/image geometry feedback loop.
+        self.video = tk.Canvas(body, bg="#050811", highlightthickness=0, bd=0)
         self.video.pack(side="left", fill="both", expand=True, padx=(0, 14))
+        self.placeholder = self.video.create_text(
+            10, 10, text="اضغط «تشغيل الكاميرا»", fill=MUTED,
+            font=("Segoe UI", 16), anchor="center")
         panel = tk.Frame(body, bg=PANEL, width=300)
         panel.pack(side="right", fill="y")
         panel.pack_propagate(False)
@@ -107,7 +114,7 @@ class SignBridgeSimple:
         self.status.pack(fill="x", padx=18, pady=(0, 16))
         tk.Label(panel, text="الحركات المتاحة", bg=PANEL, fg=TEXT,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=18, pady=(8, 8))
-        for s in ["👍 تمام", "✋ أهلاً / استنى", "✌️ اتنين / علامة النصر",
+        for s in ["👍 تمام", "👎 لأ / مش موافق", "✋ أهلاً / استنى", "✌️ اتنين",
                   "✊ قبضة مقفولة", "☝️ واحد", "🤟 تلاتة",
                   "🖖 أربعة", "🤘 علامة الروك", "🤙 الخنصر بس"]:
             tk.Label(panel, text=s, bg=PANEL, fg=MUTED, font=("Segoe UI", 12),
@@ -163,13 +170,17 @@ class SignBridgeSimple:
             self.result.config(text="مش شايف إيد — حطها قدام الكاميرا", fg=TEXT)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image = Image.fromarray(rgb)
-        # Fill the camera panel and adapt to the current window size.
-        # Crop excess edges proportionally instead of leaving blank margins.
-        target_w = max(1, self.video.winfo_width())
-        target_h = max(1, self.video.winfo_height())
-        image = ImageOps.fit(image, (target_w, target_h), method=Image.Resampling.LANCZOS)
+        # Fit inside the existing canvas; preserve aspect ratio and never crop.
+        # Canvas size is controlled by the window layout, not by the camera image.
+        target_w = max(2, self.video.winfo_width() - 12)
+        target_h = max(2, self.video.winfo_height() - 12)
+        image = ImageOps.contain(image, (target_w, target_h), method=Image.Resampling.LANCZOS)
         self.photo = ImageTk.PhotoImage(image)
-        self.video.config(image=self.photo, text="")
+        self.video.itemconfigure(self.placeholder, state="hidden")
+        self.video.delete("camera_frame")
+        self.video.create_image(self.video.winfo_width() // 2,
+                                self.video.winfo_height() // 2,
+                                image=self.photo, anchor="center", tags="camera_frame")
         self.root.after(25, self.update_frame)
 
     def stop(self):
@@ -179,7 +190,10 @@ class SignBridgeSimple:
             self.cap = None
         self.start_btn.config(state="normal")
         self.status.config(text="الكاميرا متوقفة", fg=AMBER)
-        self.video.config(image="", text="اضغط «تشغيل الكاميرا»")
+        self.video.delete("camera_frame")
+        self.video.coords(self.placeholder, self.video.winfo_width() // 2,
+                          self.video.winfo_height() // 2)
+        self.video.itemconfigure(self.placeholder, text="اضغط «تشغيل الكاميرا»", state="normal")
         self.photo = None
 
     def close(self):
