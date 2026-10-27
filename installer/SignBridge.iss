@@ -18,7 +18,7 @@ ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayIcon={app}\SignBridge.exe
 
 [Files]
-Source: "dist\SignBridge\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\SignBridge\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
 Name: "{group}\SignBridge"; Filename: "{app}\SignBridge.exe"
