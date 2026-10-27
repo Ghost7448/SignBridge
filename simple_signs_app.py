@@ -20,20 +20,20 @@ GREEN = "#56d6a2"
 AMBER = "#f2c66d"
 
 def fingers_up(lm):
-    # Finger tip and PIP comparisons are robust enough for a basic demo when
-    # the palm faces the camera. Thumb uses x-direction and can vary by hand.
-    index = lm[8].y < lm[6].y
-    middle = lm[12].y < lm[10].y
-    ring = lm[16].y < lm[14].y
-    pinky = lm[20].y < lm[18].y
-    # Compare thumb tip to IP joint; handedness-specific direction is handled
-    # by MediaPipe handedness when available.
+    # A small margin avoids counting tiny landmark jitter as an extended finger.
+    margin = 0.02
+    index = lm[8].y < lm[6].y - margin
+    middle = lm[12].y < lm[10].y - margin
+    ring = lm[16].y < lm[14].y - margin
+    pinky = lm[20].y < lm[18].y - margin
     return index, middle, ring, pinky
 
 def classify_pose(hand, handedness_label="Right"):
     lm = hand.landmark
     idx, mid, ring, pinky = fingers_up(lm)
-    thumb_up = lm[4].y < lm[3].y and lm[4].y < lm[2].y
+    # Require a clear vertical separation so a curled thumb is less likely
+    # to be mistaken for a thumbs-up.
+    thumb_up = lm[4].y < lm[3].y - 0.04 and lm[4].y < lm[2].y - 0.04
     folded_count = sum(not x for x in (idx, mid, ring, pinky))
 
     # 👍 A clear raised thumb while the four fingers are folded.
@@ -45,7 +45,7 @@ def classify_pose(hand, handedness_label="Right"):
         return ("✋  أهلاً / تحية", 0.78)
     if idx and mid and not ring and not pinky:
         return ("✌️  سلام / إشارة النصر", 0.72)
-    if not idx and not mid and not ring and not pinky and not thumb_up:
+    if not idx and not mid and not ring and not pinky:
         return ("✊  قبضة اليد", 0.70)
     if idx and not mid and not ring and not pinky:
         return ("☝️  السبابة", 0.68)
