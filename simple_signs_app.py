@@ -39,10 +39,21 @@ def classify_pose(hand, handedness_label="Right"):
     # 👍 A clear raised thumb while the four fingers are folded.
     if thumb_up and folded_count >= 3:
         return ("👍  تمام / ممتاز", 0.82)
-    # ✋ Open palm is presented as a greeting gesture for the demo. This is
-    # not a claim that one static pose equals the full Arabic sign phrase.
-    if idx and mid and ring and pinky:
+    # ✋ Open palm: a visual greeting approximation, not a full sign phrase.
+    if idx and mid and ring and pinky and thumb_up:
         return ("✋  أهلاً / تحية", 0.78)
+    # Four fingers up while the thumb stays folded.
+    if idx and mid and ring and pinky and not thumb_up:
+        return ("🖖  أربعة أصابع", 0.70)
+    # Three raised fingers.
+    if idx and mid and ring and not pinky:
+        return ("🤟  ثلاثة أصابع", 0.72)
+    # Index and pinky raised: commonly called the rock-horns pose.
+    if idx and not mid and not ring and pinky:
+        return ("🤘  إشارة الروك", 0.72)
+    # Pinky alone.
+    if not idx and not mid and not ring and pinky:
+        return ("🤙  الخنصر مرفوع", 0.68)
     if idx and mid and not ring and not pinky:
         return ("✌️  سلام / إشارة النصر", 0.72)
     if not idx and not mid and not ring and not pinky:
@@ -75,7 +86,7 @@ class SignBridgeSimple:
         header.pack(fill="x", padx=22, pady=16)
         tk.Label(header, text="SignBridge", font=("Segoe UI", 27, "bold"),
                  bg=BG, fg=TEXT).pack(anchor="w")
-        tk.Label(header, text="عرض تجريبي للتعرّف على أوضاع اليد — 5 حركات بسيطة",
+        tk.Label(header, text="عرض تجريبي للتعرّف على أوضاع اليد — 9 حركات",
                  font=("Segoe UI", 12), bg=BG, fg=MUTED).pack(anchor="w", pady=(4, 0))
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=22, pady=(0, 16))
@@ -96,8 +107,9 @@ class SignBridgeSimple:
         self.status.pack(fill="x", padx=18, pady=(0, 16))
         tk.Label(panel, text="الحركات المتاحة", bg=PANEL, fg=TEXT,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=18, pady=(8, 8))
-        for s in ["👍 تمام / ممتاز", "✋ أهلاً / تحية", "✌️ سلام / النصر",
-                  "✊ قبضة اليد", "☝️ السبابة"]:
+        for s in ["👍 تمام / ممتاز", "✋ أهلاً / تحية تقريبية", "✌️ سلام / النصر",
+                  "✊ قبضة اليد", "☝️ السبابة", "🤟 ثلاثة أصابع",
+                  "🖖 أربعة أصابع", "🤘 إشارة الروك", "🤙 الخنصر مرفوع"]:
             tk.Label(panel, text=s, bg=PANEL, fg=MUTED, font=("Segoe UI", 12),
                      anchor="e").pack(fill="x", padx=18, pady=4)
         controls = tk.Frame(self.root, bg=BG)
