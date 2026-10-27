@@ -3,6 +3,8 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - "mobile/**"
       - ".github/workflows/build-android.yml"
@@ -29,7 +31,9 @@ jobs:
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools"
 
       - name: Prepare web assets
         working-directory: mobile
