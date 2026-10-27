@@ -1,17 +1,16 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title SignBridge
+title SignBridge - Egyptian Sign Language
 
-if not exist ".venv\Scripts\python.exe" (
-    echo Run setup.bat first to install the project.
-    pause
-    exit /b 1
-)
+echo ================================================
+echo                 SignBridge
+echo       Egyptian Sign Language Recognition
+echo ================================================
+echo.
+echo Starting the ESL research app...
+echo First run: dependencies and model files may take several minutes to download.
+echo Keep this window open while the app is running.
+echo.
 
-".venv\Scripts\python.exe" app.py
-if errorlevel 1 (
-    echo.
-    echo SignBridge closed with an error. Check the message above.
-    pause
-)
+call "%~dp0run_esl_app.bat"
