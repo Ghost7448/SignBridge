@@ -24,3 +24,9 @@ datasets/esl_video_inventory.csv
 
 # Temporary logs
 *.log
+
+# Generated mobile/Android build files
+mobile/node_modules/
+mobile/android/
+mobile/www/
+mobile/package-lock.json
