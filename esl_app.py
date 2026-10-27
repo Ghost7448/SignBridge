@@ -32,6 +32,14 @@ DOWNLOADS = {
 }
 FACE_IDX = [0, 1, 13, 14, 17, 33, 61, 199, 263, 291]
 EMOTION_CLASSES = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
+
+# Focused demo: only show these ten labels. The underlying research model still
+# predicts 56 classes; predictions outside this allowlist are intentionally hidden.
+DEMO_LABELS = {
+    "alam", "3rabia", "docktor", "ktab", "manzel",
+    "whashny", "whda whda", "yshtm", "bkrh", "shbak",
+}
+MIN_DEMO_CONFIDENCE = 0.45
 NEUTRAL_IDX = EMOTION_CLASSES.index("neutral")
 
 # Arabic display aliases for labels whose transliteration is reasonably clear.
@@ -205,10 +213,10 @@ class SignBridgeESLApp:
         header.pack(fill="x", padx=22, pady=(18, 8))
         tk.Label(header, text="SignBridge", font=("Segoe UI", 25, "bold"),
                  bg=BG, fg=TEXT).pack(side="left")
-        tk.Label(header, text="EGYPTIAN SIGN LANGUAGE • 56 LABELS IN MODEL",
+        tk.Label(header, text="EGYPTIAN SIGN LANGUAGE • 10 DEMO SIGNS",
                  font=("Segoe UI", 9, "bold"), bg=BG, fg=GREEN).pack(side="right", pady=12)
 
-        tk.Label(root, text="التعرّف على إشارات من نموذج لغة الإشارة المصرية",
+        tk.Label(root, text="عرض تجريبي مركز: 10 مفردات من نموذج لغة الإشارة المصرية",
                  font=("Segoe UI", 15, "bold"), bg=BG, fg=TEXT).pack(anchor="w", padx=24, pady=(0, 12))
 
         body = tk.Frame(root, bg=BG)
@@ -248,7 +256,7 @@ class SignBridgeESLApp:
                   activeforeground="white", relief="flat", font=("Segoe UI", 10, "bold"),
                   pady=10, cursor="hand2").pack(fill="x", pady=4)
         tk.Label(side,
-                 text="تنبيه: النموذج بحثي ويتعرف على مفردات معزولة فقط. النتيجة توقع وليست ترجمة مضمونة.",
+                 text="قائمة العرض: ألم، عربية، دكتور، كتاب، منزل، وحشتني، واحدة واحدة، يشتم، بكرة، شباك. النموذج بحثي والنتيجة توقع غير مضمون.",
                  font=("Segoe UI", 9), bg=PANEL, fg=AMBER, wraplength=240,
                  justify="left").pack(anchor="w", pady=(18, 0))
 
@@ -324,6 +332,20 @@ class SignBridgeESLApp:
                     shown = "لم يتم رصد يد"
                     label_for_ui = "لم يتم رصد يد"
                     conf_for_ui = 0.0
+                elif label not in DEMO_LABELS:
+                    shown = "جرّب إشارة من قائمة العرض"
+                    label_for_ui = shown
+                    conf_for_ui = 0.0
+                    cv2.rectangle(small, (0, 0), (320, 58), (11, 16, 32), -1)
+                    cv2.putText(small, "OUTSIDE DEMO LIST", (8, 25), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.48, (242, 198, 109), 2, cv2.LINE_AA)
+                elif float(confidence) < MIN_DEMO_CONFIDENCE:
+                    shown = "الإشارة غير واضحة — حاول تاني"
+                    label_for_ui = shown
+                    conf_for_ui = float(confidence)
+                    cv2.rectangle(small, (0, 0), (320, 58), (11, 16, 32), -1)
+                    cv2.putText(small, "LOW CONFIDENCE", (8, 25), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.48, (242, 198, 109), 2, cv2.LINE_AA)
                 else:
                     shown = ARABIC_LABELS.get(label, label)
                     label_for_ui = shown
